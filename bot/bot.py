@@ -301,6 +301,13 @@ async def handle_vote(update, context):
     """
     await execute_db_query_async(insert_query, (translation_id, user_id, score_value))
 
+    # After processing the vote, remove the keyboard
+    await context.bot.edit_message_reply_markup(
+        chat_id=update.effective_chat.id,
+        message_id=query.message.message_id,
+        reply_markup=None,
+    )
+
     # After processing the vote
     message = "Thank you for your rating!"
     await context.bot.send_message(chat_id=update.effective_chat.id, text=message)
