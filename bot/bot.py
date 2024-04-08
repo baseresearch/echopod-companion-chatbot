@@ -156,6 +156,32 @@ async def contribute_command(update, context):
 async def vote_command(update, context):
     context.user_data["auto_vote"] = True
 
+    # Check if this is the first time the user is using the /vote command
+    if "saw_best_practices" not in context.user_data:
+        context.user_data["saw_best_practices"] = True
+
+        voting_rules = (
+            "ဘာသာပြန်ဆိုမှုတစ်ခုကို အမှတ်ပေးရန်၊ နံပါတ်တစ်ခုကို ရွေးချယ်ပါ။\n\n"
+            "1 - အလွန်ညံ့သော/မှားသော\n"
+            "2 - ညံ့သော\n"
+            "3 - သာမန်\n"
+            "4 - ကောင်းမွန်သော\n"
+            "5 - အထူးကောင်းမွန်သော\n\n"
+            "မဲစပေးရန် 'OK' ကို နှိပ်ပါ။"
+        )
+        keyboard = [[InlineKeyboardButton("OK", callback_data="start_voting")]]
+        reply_markup = InlineKeyboardMarkup(keyboard)
+
+        await context.bot.send_message(
+            chat_id=update.effective_chat.id,
+            text=voting_rules,
+            reply_markup=reply_markup,
+        )
+    else:
+        await send_text2vote(update, context)
+
+
+async def send_text2vote(update, context):
     query = """
     SELECT t.translation_id, o.text AS original_text, t.text AS translated_text 
     FROM Translation t 
@@ -164,11 +190,18 @@ async def vote_command(update, context):
     LIMIT 1
     """
     result = await execute_db_query_async(query, fetchone=True)
-    message = (
-        "No translations available for scoring at the moment. Please try again later."
-        if not result
-        else f"Please rate the quality of the following translation (1-5):\n\nEnglish: {result[1]}\n\nBurmese: {result[2]}"
-    )
+
+    if not result:
+        message = "No translations available for scoring at the moment. Please try again later."
+    else:
+        message = (
+            f"🐬\n"
+            + "အောက်ပါဘာသာပြန်ဆိုမှုအား 1 မှ 5 အတွင်း အဆင့်သတ်မှတ်ပေးပါ:\n\n"
+            + "English:\n----------| "
+            + f"{result[1]}\n\n"
+            + "Burmese:\n----------| "
+            + f"{result[2]}\n"
+        )
 
     if result:
         context.user_data["score_translation_id"] = result[0]
@@ -274,6 +307,20 @@ async def handle_skip_contribution(update, context):
         await contribute_command(update, context)
 
 
+async def handle_start_voting(update, context):
+    query = update.callback_query
+    await query.answer()
+
+    if query.data == "start_voting":
+        await context.bot.edit_message_reply_markup(
+            chat_id=update.effective_chat.id,
+            message_id=query.message.message_id,
+            reply_markup=None,
+        )
+        
+        await send_text2vote(update, context)
+
+
 async def handle_vote(update, context):
     query = update.callback_query  # handle user voting callback
     await query.answer()
@@ -335,6 +382,9 @@ def main():
     application.add_handler(CommandHandler("vote", vote_command))
     application.add_handler(CommandHandler("stop", stop_command))
     application.add_handler(CommandHandler("leaderboard", leaderboard_command))
+    application.add_handler(
+        CallbackQueryHandler(handle_start_voting, pattern="^start_voting$")
+    )
     application.add_handler(CallbackQueryHandler(handle_vote, pattern="^vote_"))
     application.add_handler(
         CallbackQueryHandler(handle_skip_contribution, pattern="^skip_contribute$")
