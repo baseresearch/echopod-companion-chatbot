@@ -5,7 +5,7 @@ import psycopg2.pool
 import logging
 import time
 from contextlib import contextmanager
-from telegram import InlineKeyboardButton, InlineKeyboardMarkup
+from telegram import Update, InlineKeyboardButton, InlineKeyboardMarkup
 from telegram.ext import (
     Application,
     CommandHandler,
@@ -34,8 +34,9 @@ db_params = {
 # Initialize a connection pool
 db_pool = psycopg2.pool.SimpleConnectionPool(**db_params)
 
-# Replace with your own token for testing / development
+
 TOKEN = os.getenv("TELEGRAM_BOT_TOKEN")
+VOTING_SESSION_THRESHOLD = 60 * 60
 
 
 # Context manager for database connections
@@ -261,6 +262,8 @@ async def stop_command(update, context):
 
 
 async def handle_text(update, context):
+    interaction_interval = calculate_interaction_interval(context.user_data)
+    update_avg_interaction_interval(context.user_data, interaction_interval)
     context.user_data["last_interaction_time"] = time.time()
 
     # Check if the user is in contribution mode
@@ -276,6 +279,8 @@ async def handle_text(update, context):
 
 
 async def handle_contribution(update, context):
+    contribution_interval = calculate_interaction_interval(context.user_data)
+    update_avg_interaction_interval(context.user_data, contribution_interval)
     context.user_data["last_interaction_time"] = time.time()
 
     user_id = update.effective_user.id
@@ -309,8 +314,10 @@ async def handle_contribution(update, context):
 
 
 async def handle_skip_contribution(update, context):
+    interaction_interval = calculate_interaction_interval(context.user_data)
+    update_avg_interaction_interval(context.user_data, interaction_interval)
     context.user_data["last_interaction_time"] = time.time()
-    
+
     query = update.callback_query  # handle "Skip" contribution callback
     await query.answer()
 
@@ -319,6 +326,8 @@ async def handle_skip_contribution(update, context):
 
 
 async def handle_start_voting(update, context):
+    voting_interval = calculate_interaction_interval(context.user_data)
+    update_avg_interaction_interval(context.user_data, voting_interval)
     context.user_data["last_interaction_time"] = time.time()
 
     query = update.callback_query
@@ -335,6 +344,8 @@ async def handle_start_voting(update, context):
 
 
 async def handle_vote(update, context):
+    voting_interval = calculate_interaction_interval(context.user_data)
+    update_avg_interaction_interval(context.user_data, voting_interval)
     context.user_data["last_interaction_time"] = time.time()
 
     query = update.callback_query  # handle user voting callback
@@ -379,24 +390,54 @@ async def handle_vote(update, context):
         await vote_command(update, context)
 
     # TODO if score is below 3, ask for alternate translation
-    # if score_value < 3:
-    #     delete_query = """
-    #     DELETE FROM Translation WHERE translation_id = %s
-    #     """
-    #     await execute_db_query_async(delete_query, (translation_id,))
-    #     message += "\nThe translation has been removed due to a low score and will be available for contribution again."
 
 
 async def reminder_job(context):
     for user_id, user_data in context.dispatcher.user_data.items():
-        if (
-            not user_data.get("paused", False)
-            and user_data.get("last_interaction_time", 0) < time.time() - 24 * 60 * 60
-        ):
-            await context.bot.send_message(
-                chat_id=user_id,
-                text="Hey there!\n\nJust a friendly reminder to contribute to the 🐬 Echopod dataset today.\n\nYour translations make a big difference! 🐬✨",
+        if not user_data.get("paused", False):
+            current_time = time.time()
+
+            # Check reminder
+            last_interaction_session_time = user_data.get(
+                "last_interaction_session_time", 0
             )
+            avg_voting_interval = user_data.get(
+                "avg_voting_interval", 24 * 60 * 60
+            )  # Default to 24 hours
+
+            if (
+                last_interaction_session_time > 0
+                and current_time - last_interaction_session_time
+                > avg_voting_interval * 1.5
+            ):
+                await context.bot.send_message(
+                    chat_id=user_id,
+                    text="Hi! It's been a while since your last voting session.\n\nYour votes help ensure the quality of the 🐬 Echopod dataset.\n\nTake a moment to review some translations today! 🙏🐬",
+                )
+
+
+def calculate_interaction_interval(user_data):
+    current_time = time.time()
+    last_interaction_time = user_data.get("last_interaction_time", 0)
+    last_interaction_session_time = user_data.get("last_interaction_session_time", 0)
+
+    if last_interaction_time > 0:
+        if current_time - last_interaction_time <= VOTING_SESSION_THRESHOLD:
+            user_data["last_interaction_time"] = current_time
+            return None
+        else:
+            voting_interval = current_time - last_interaction_session_time
+            user_data["last_interaction_session_time"] = current_time
+            return voting_interval
+    else:
+        user_data["last_interaction_session_time"] = current_time
+        return None
+
+
+def update_avg_interaction_interval(user_data, voting_interval):
+    if voting_interval is not None:
+        avg_voting_interval = user_data.get("avg_voting_interval", 24 * 60 * 60)
+        user_data["avg_voting_interval"] = (avg_voting_interval + voting_interval) / 2
 
 
 def main():
@@ -427,7 +468,7 @@ def main():
     )
 
     # Start the bot
-    application.run_polling()
+    application.run_polling(allowed_updates=Update.ALL_TYPES)
 
 
 if __name__ == "__main__":
