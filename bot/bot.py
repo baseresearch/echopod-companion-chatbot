@@ -22,8 +22,8 @@ load_dotenv()
 
 # Database connection parameters using environment variables
 db_params = {
-    "minconn": 1,
-    "maxconn": 20,
+    "minconn": int(os.getenv("DB_MIN_CONN", 1)),
+    "maxconn": int(os.getenv("DB_MAX_CONN", 20)),
     "dbname": os.getenv("DB_NAME"),
     "user": os.getenv("DB_USER"),
     "password": os.getenv("DB_PASSWORD"),
@@ -317,7 +317,7 @@ async def handle_start_voting(update, context):
             message_id=query.message.message_id,
             reply_markup=None,
         )
-        
+
         await send_text2vote(update, context)
 
 
