@@ -3,6 +3,7 @@ import asyncio
 import psycopg2
 import psycopg2.pool
 import logging
+import time
 from contextlib import contextmanager
 from telegram import InlineKeyboardButton, InlineKeyboardMarkup
 from telegram.ext import (
@@ -127,6 +128,7 @@ async def start_command(update, context):
 async def contribute_command(update, context):
     context.user_data["contribute_mode"] = True
     context.user_data["auto_contribute"] = True
+    context.user_data["paused"] = False
 
     query = """
     SELECT text_id, text 
@@ -155,6 +157,7 @@ async def contribute_command(update, context):
 
 async def vote_command(update, context):
     context.user_data["auto_vote"] = True
+    context.user_data["paused"] = False
 
     # Check if this is the first time the user is using the /vote command
     if "saw_best_practices" not in context.user_data:
@@ -249,6 +252,8 @@ async def leaderboard_command(update, context):
 async def stop_command(update, context):
     context.user_data["auto_contribute"] = False
     context.user_data["auto_vote"] = False
+    context.user_data["paused"] = True
+
     await context.bot.send_message(
         chat_id=update.effective_chat.id,
         text="Please use /contribute or /vote to start again.",
@@ -256,6 +261,8 @@ async def stop_command(update, context):
 
 
 async def handle_text(update, context):
+    context.user_data["last_interaction_time"] = time.time()
+
     # Check if the user is in contribution mode
     if "contribute_mode" in context.user_data and context.user_data["contribute_mode"]:
         # Handle the contribution
@@ -269,6 +276,8 @@ async def handle_text(update, context):
 
 
 async def handle_contribution(update, context):
+    context.user_data["last_interaction_time"] = time.time()
+
     user_id = update.effective_user.id
     text_id = context.user_data.get("contribute_text_id")
     translated_text = update.message.text
@@ -300,6 +309,8 @@ async def handle_contribution(update, context):
 
 
 async def handle_skip_contribution(update, context):
+    context.user_data["last_interaction_time"] = time.time()
+    
     query = update.callback_query  # handle "Skip" contribution callback
     await query.answer()
 
@@ -308,6 +319,8 @@ async def handle_skip_contribution(update, context):
 
 
 async def handle_start_voting(update, context):
+    context.user_data["last_interaction_time"] = time.time()
+
     query = update.callback_query
     await query.answer()
 
@@ -322,6 +335,8 @@ async def handle_start_voting(update, context):
 
 
 async def handle_vote(update, context):
+    context.user_data["last_interaction_time"] = time.time()
+
     query = update.callback_query  # handle user voting callback
     await query.answer()
 
@@ -372,9 +387,24 @@ async def handle_vote(update, context):
     #     message += "\nThe translation has been removed due to a low score and will be available for contribution again."
 
 
+async def reminder_job(context):
+    for user_id, user_data in context.dispatcher.user_data.items():
+        if (
+            not user_data.get("paused", False)
+            and user_data.get("last_interaction_time", 0) < time.time() - 24 * 60 * 60
+        ):
+            await context.bot.send_message(
+                chat_id=user_id,
+                text="Hey there!\n\nJust a friendly reminder to contribute to the 🐬 Echopod dataset today.\n\nYour translations make a big difference! 🐬✨",
+            )
+
+
 def main():
     # Create an Application instance
     application = Application.builder().token(TOKEN).build()
+
+    # Check every hour for the reminder
+    application.job_queue.run_repeating(reminder_job, interval=60 * 60, first=0)
 
     # Add handlers to the application
     application.add_handler(CommandHandler("start", start_command))
