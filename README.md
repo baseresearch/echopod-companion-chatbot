@@ -51,7 +51,7 @@ To set up the Echopod chatbot for your own project, follow these steps:
 
 4. Install the required dependencies:
    ```
-   pip install python-telegram-bot psycopg2 python-dotenv
+   pip install python-telegram-bot python-telegram-bot[job-queue] psycopg2-binary python-dotenv
    ```
 
 5. Run the bot:
