@@ -6,7 +6,7 @@
 
 This is the repo for the 🐬 Echopod - Companion Chatbot project, which aims to facilitate community participation in building largest publicly available conversational-style translation dataset between English and Burmese.
 
-> If you want to contribute to the 🐬 Echopod bilingual dialog dataset project, please use our Telegram chatbot by following this link: [🐬 Echopod - Companion Chatbot](TBA).
+> If you want to contribute to the 🐬 Echopod bilingual dialog dataset project, please use our Telegram chatbot by following this link: [🐬 Echopod - Companion Chatbot](https://t.me/MyEchopodBot).
 
 ## Overview
 
