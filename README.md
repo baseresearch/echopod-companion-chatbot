@@ -1,22 +1,22 @@
 <p align="center" width="100%">
-<a href="https://t.me/MyEchopodBot" target="_blank"><img src="assets/logo.jpeg" alt="🐬 Echopod Companion" style="width: 50%; min-width: 300px; display: block; margin: auto;"></a>
+<a href="https://t.me/MyEchopodBot" target="_blank"><img src="assets/logo.jpeg" alt="🐬 Echopod Companion Bot" style="width: 50%; min-width: 300px; display: block; margin: auto;"></a>
 </p>
 
 # 🐬 Echopod - Companion Chatbot
 
-This is the repo for the 🐬 Echopod - Companion Chatbot project, which aims to facilitate community participation in building largest publicly available conversational-style translation dataset between English and Burmese.
+This is the repo for the 🐬 Echopod - Companion Chatbot project, which aims to facilitate community participation in building largest publicly available conversational-style parallel dataset between English and Burmese.
 
-> If you want to contribute to the 🐬 Echopod bilingual dialog dataset project, please use our Telegram chatbot by following this link: [🐬 Echopod - Companion Chatbot](https://t.me/MyEchopodBot).
+> Contribute to the *🐬 Echopod Dataset* project by following the link: [🐬 Echopod - Companion Chatbot](https://t.me/MyEchopodBot).
 
 ## Overview
 
-The current 🐬 Echopod - Companion Chatbot is designed to engage the Burmese community in collaborative annotation of the Echopod bilingual dialog dataset. It allows users to contribute translations from English to Burmese and score the quality of existing translations through a user-friendly interface accessible via Telegram app. This approach enables faster involvement compared to traditional PC annotation tools, making it more accessible for a wider range of contributors, including those who may have skipped the computer era.
+The current 🐬 Echopod - Companion Chatbot is designed to engage the Burmese community in collaborative annotation of the 🐬 Echopod Dataset. It allows users to contribute translations from English to Burmese and score the quality of existing translations through a user-friendly interface accessible via Telegram app. This approach enables faster involvement compared to traditional PC annotation tools, making it more accessible for a wider range of contributors, including those who may have skipped the computer era.
 
 The 🐬 Echopod - Companion Chatbot is still under development, and there are limitations that have to be addressed. We encourage users to provide feedback and report any issues or suggestions for improvements to help refine the chatbot and enhance the overall annotation experience.
 
-Our initial release contains the source code, setup instructions, and usage guidelines for the chatbot. We intend to continuously update and improve the chatbot based on user feedback and the evolving needs of the 🐬 Echopod bilingual dialog dataset project.
+Our initial release contains the source code, setup instructions, and usage guidelines for the chatbot. We intend to continuously update and improve the chatbot based on user feedback and the evolving needs of the 🐬 Echopod Dataset project.
 
-**Please read our project overview for more details about the [🐬 Echopod bilingual dialog dataset](#🐬-echopod-bilingual-dialog-dataset-project) project and our vision for creating the largest publicly available conversational-style translation dataset between English and Burmese.**
+**Please read our project overview for more details about the [🐬 Echopod Dataset](#🐬-echopod-dataset-project) project and our vision for creating the largest publicly available conversational-style parallel dataset between English and Burmese.**
 
 ## Features
 
@@ -97,7 +97,7 @@ howpublished = {\url{https://github.com/baseresearch/echopod-companion-chatbot}}
 
 ### Acknowledgements
 
-We thank all the contributors and community members who have supported and participated in the 🐬 Echopod bilingual dialog dataset project. Your contributions are invaluable in creating the largest publicly available conversational-style translation dataset between English and Burmese.
+We thank all the contributors and community members who have supported and participated in the 🐬 Echopod Dataset project. Your contributions are invaluable in creating the largest publicly available conversational-style parallel dataset between English and Burmese.
 
 ### License
 
@@ -105,6 +105,6 @@ This project is licensed under the [Apache-2.0 license](LICENSE).
 
 ---
 
-## 🐬 Echopod Bilingual Dialog Dataset Project
+## 🐬 Echopod Dataset Project
 
-The 🐬 Echopod bilingual dialog dataset project aims to create the largest publicly available conversational-style translation dataset between English and Burmese (ENG <> MM). [Base Technology](https://www.basetechnology.xyz/) is developing this dataset from the ground up by collecting conversational-style data from various sources, including movie subtitles, novel dialogs, wikipedia articles, and more. The collected data undergoes machine translation using 🐬 Echopod's translation model, and the community is invited to contribute to the refinement and validation of the translations.
+The 🐬 Echopod Dataset project aims to create the largest publicly available conversational-style parallel dataset between English and Burmese. [Base Technology](https://www.basetechnology.xyz/) is developing this dataset from the ground up by collecting conversational-style data from various sources, including movie subtitles, novel dialogs, wikipedia articles, and more. The collected data undergoes machine translation using 🐬 Echopod's translation model, and the community is invited to contribute to the refinement and validation of the translations.
