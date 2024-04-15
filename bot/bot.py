@@ -32,8 +32,7 @@ db_params = {
 }
 
 # Initialize a connection pool
-db_pool = psycopg2.pool.SimpleConnectionPool(**db_params)
-
+db_pool = psycopg2.pool.ThreadedConnectionPool(**db_params)
 
 TOKEN = os.getenv("TELEGRAM_BOT_TOKEN")
 VOTING_SESSION_THRESHOLD = 60 * 60
@@ -132,11 +131,14 @@ async def contribute_command(update, context):
     context.user_data["paused"] = False
 
     query = """
-    SELECT text_id, text 
-    FROM OriginalText 
-    WHERE text_id NOT IN (SELECT original_text_id FROM Translation) 
-    ORDER BY RANDOM() 
-    LIMIT 1
+    SELECT text_id, text
+    FROM (
+        SELECT text_id, text
+        FROM OriginalText
+        WHERE text_id NOT IN (SELECT original_text_id FROM Translation)
+        ORDER BY RANDOM()
+        LIMIT 1
+    ) AS subquery
     """
     result = await execute_db_query_async(query, fetchone=True)
     message = (
