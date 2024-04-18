@@ -1,95 +1,86 @@
 import json
 import logging
-from bot.db import (
-    execute_db_query_async,
+from db import (
     get_user_data,
     set_user_data,
     is_user_exists,
-    original_text_table,
-    translation_table,
+    get_user_details,
+    get_untranslated_text,
+    get_unvoted_translation,
+    get_translation_by_id,
+    get_original_text,
+    get_leaderboard_data,
 )
-from bot.callbacks import send_text2vote
-from bot.utils import send_message
-from telegram import InlineKeyboardButton, InlineKeyboardMarkup
+from utils import send_message, handle_command_error
+from telegram import Update, InlineKeyboardButton, InlineKeyboardMarkup
+from telegram.ext import ContextTypes
 
 # Configure logging
 logger = logging.getLogger()
 logger.setLevel(logging.INFO)
 
 
-async def start_command(update, context):
+async def start_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    logger.info(f"start_command called with update: {update}, context: {context}")
     user_id = update.effective_user.id
     username = update.effective_user.full_name
 
     try:
-        await is_user_exists(user_id, username)
+        is_user_exists(user_id, username)
         message = "Welcome to the Echopod Builder!\n\nTo get started, please send:\n\n1. /contribute\n2. /vote"
-        await send_message(user_id, message)
+        await send_message(context, user_id, message)
         return {
             "statusCode": 200,
             "body": json.dumps({"message": "Start command processed"}),
         }
     except Exception as e:
-        logger.error(f"Failed to process start command: {e}")
-        error_message = "An error occurred while processing the start command. Please try again later."
-        await send_message(user_id, error_message)
-        return {
-            "statusCode": 500,
-            "body": json.dumps({"message": "Error processing start command"}),
-        }
+        return await handle_command_error(update, context, e, "start")
 
 
-async def contribute_command(update, context):
+async def contribute_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    logger.info(f"contribute_command called with update: {update}, context: {context}")
     user_id = update.effective_user.id
-    await set_user_data(user_id, "contribute_mode", "True")
-    await set_user_data(user_id, "auto_contribute", "True")
-    await set_user_data(user_id, "paused", "False")
-
-    response = await execute_db_query_async(
-        operation="scan",
-        filter_expression="attribute_not_exists(translation_id)",
-        limit=1,
-        table=original_text_table,
-    )
-
-    if response["Count"] > 0:
-        result = response["Items"][0]
-        message = f"Please translate the following English sentence to Burmese:\n\n{result['text']}"
-        await set_user_data(user_id, "contribute_text_id", result["text_id"])
-    else:
-        message = (
-            "No untranslated sentences available at the moment. Please try again later."
-        )
-
-    keyboard = [[InlineKeyboardButton("Skip", callback_data="skip_contribute")]]
-    reply_markup = InlineKeyboardMarkup(keyboard)
+    set_user_data(user_id, "contribute_mode", "True")
+    set_user_data(user_id, "auto_contribute", "True")
+    set_user_data(user_id, "paused", "False")
 
     try:
-        await send_message(user_id, message, reply_markup=reply_markup)
+        result = get_untranslated_text()
+
+        if result:
+            message = f"Please translate the following English sentence to Burmese:\n\n{result['text']}"
+            set_user_data(user_id, "contribute_text_id", result["text_id"])
+        else:
+            message = "No untranslated sentences available at the moment. Please try again later."
+
+        keyboard = [[InlineKeyboardButton("Skip", callback_data="skip_contribute")]]
+        reply_markup = InlineKeyboardMarkup(keyboard)
+
+        await send_message(context, user_id, message, reply_markup=reply_markup)
         return {
             "statusCode": 200,
             "body": json.dumps({"message": "Contribute command processed"}),
         }
     except Exception as e:
-        logger.error(f"Failed to send contribute message: {e}")
-        error_message = "An error occurred while processing the contribute command. Please try again later."
-        await send_message(user_id, error_message)
-        return {
-            "statusCode": 500,
-            "body": json.dumps({"message": "Error processing contribute command"}),
-        }
+        return await handle_command_error(update, context, e, "contribute")
 
 
-async def vote_command(update, context):
+async def vote_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    logger.info(f"vote_command called with update: {update}, context: {context}")
     user_id = update.effective_user.id
     try:
-        await set_user_data(user_id, "auto_vote", "False")
-        await set_user_data(user_id, "paused", "False")
+        set_user_data(user_id, "auto_vote", "False")
+        set_user_data(user_id, "paused", "False")
 
         # Check if this is the first time the user is using the /vote command
-        saw_best_practices = await get_user_data(user_id, "saw_best_practices")
+        saw_best_practices = get_user_data(user_id, "saw_best_practices")
+        logger.info(f"saw_best_practices: {saw_best_practices}")
+
         if not saw_best_practices:
-            await set_user_data(user_id, "saw_best_practices", "True")
+            logger.info(
+                f"saw_best_practices called with update: {update}, context: {context}"
+            )
+            set_user_data(user_id, "saw_best_practices", "True")
 
             voting_rules = (
                 "ဘာသာပြန်ဆိုမှုတစ်ခုကို အမှတ်ပေးရန်၊ နံပါတ်တစ်ခုကို ရွေးချယ်ပါ။\n\n"
@@ -103,7 +94,9 @@ async def vote_command(update, context):
             keyboard = [[InlineKeyboardButton("OK", callback_data="start_voting")]]
             reply_markup = InlineKeyboardMarkup(keyboard)
 
-            await send_message(user_id, voting_rules, reply_markup=reply_markup)
+            await send_message(
+                context, user_id, voting_rules, reply_markup=reply_markup
+            )
             return {
                 "statusCode": 200,
                 "body": json.dumps({"message": "Vote command processed"}),
@@ -115,83 +108,133 @@ async def vote_command(update, context):
                 "body": json.dumps({"message": "Vote command processed"}),
             }
     except Exception as e:
-        logger.error(f"Error in vote_command: {e}")
-        error_message = "An error occurred while processing the vote command. Please try again later."
-        await send_message(user_id, error_message)
-        return {
-            "statusCode": 500,
-            "body": json.dumps({"message": "Error processing vote command"}),
-        }
+        return await handle_command_error(update, context, e, "vote")
 
 
-async def leaderboard_command(update, context):
-    try:
-        response = await execute_db_query_async(
-            operation="query",
-            index_name="OriginalTextIndex",
-            limit=10,
-            table=translation_table,
-        )
-
-        if "Items" in response and response["Items"]:
-            leaderboard_data = {}
-            for item in response["Items"]:
-                user_id = item["user_id"]
-                if user_id in leaderboard_data:
-                    leaderboard_data[user_id]["count"] += 1
-                else:
-                    user_response = await execute_db_query_async(
-                        operation="get_item",
-                        key_condition_expression={"user_id": user_id},
-                        table=user_table,
-                    )
-                    if "Item" in user_response:
-                        username = user_response["Item"]["username"]
-                        leaderboard_data[user_id] = {"username": username, "count": 1}
-
-            leaderboard_text = "Top 10 Contributors:\n\n"
-            leaderboard_data = sorted(
-                leaderboard_data.values(), key=lambda x: x["count"], reverse=True
-            )
-            for rank, data in enumerate(leaderboard_data, start=1):
-                leaderboard_text += (
-                    f"{rank}. {data['username']}: {data['count']} contributions\n"
-                )
-        else:
-            leaderboard_text = "No contributions found."
-
-        await send_message(update.effective_user.id, leaderboard_text)
-        return {
-            "statusCode": 200,
-            "body": json.dumps({"message": "Leaderboard command processed"}),
-        }
-    except Exception as e:
-        logger.error(f"Error in leaderboard_command: {e}")
-        error_message = "An error occurred while fetching the leaderboard."
-        await send_message(update.effective_user.id, error_message)
-        return {
-            "statusCode": 500,
-            "body": json.dumps({"message": "Error processing leaderboard command"}),
-        }
-
-
-async def stop_command(update, context):
+async def send_text2vote(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    logger.info(f"send_text2vote called with update: {update}, context: {context}")
     user_id = update.effective_user.id
-    await set_user_data(user_id, "auto_contribute", "False")
-    await set_user_data(user_id, "auto_vote", "False")
-    await set_user_data(user_id, "paused", "True")
+
+    set_user_data(user_id, "auto_vote", "True")
+
+    translation_id = get_user_data(user_id, "translation_id")
+    if translation_id:
+        result = get_translation_by_id(translation_id)
+    else:
+        result = get_unvoted_translation()
+        if result:
+            set_user_data(user_id, "translation_id", result["id"])
+
+    if result:
+        original_text_id = result["original_text_id"]
+        translation_text = result["text"]
+        original_text = get_original_text(original_text_id)
+
+        message = f"Please rate the following translation:\n\nEnglish: {original_text}\n\nMyanmar: {translation_text}"
+        keyboard = [
+            [
+                InlineKeyboardButton(
+                    str(score), callback_data=f"vote_{result['id']}_{score}"
+                )
+                for score in range(1, 6)
+            ]
+        ]
+        reply_markup = InlineKeyboardMarkup(keyboard)
+    else:
+        message = "No translations available for voting at the moment. Please try again later."
+        reply_markup = None
+
+    await send_message(context, user_id, message, reply_markup=reply_markup)
+    return {
+        "statusCode": 200,
+        "body": json.dumps({"message": "Vote command processed"}),
+    }
+
+
+async def simple_vote_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    user_id = update.effective_user.id
+    set_user_data(user_id, "vote_mode", "True")
+    set_user_data(user_id, "auto_vote", "True")
+    set_user_data(user_id, "paused", "False")
 
     try:
-        await send_message(user_id, "Please use /contribute or /vote to start again.")
+        result = get_unvoted_translation()
+        if result:
+            original_text_id = result["original_text_id"]
+            original_text = get_original_text(original_text_id)
+            translation = result["text"]
+            message = f"Please vote on the following translation:\n\nEnglish: {original_text}\nBurmese: {translation}"
+            set_user_data(user_id, "vote_translation_id", result["id"])
+        else:
+            message = "No translations available for voting at the moment. Please try again later."
+
+        keyboard = [
+            [
+                InlineKeyboardButton("👍", callback_data="upvote"),
+                InlineKeyboardButton("👎", callback_data="downvote"),
+            ],
+            [InlineKeyboardButton("Skip", callback_data="skip_vote")],
+        ]
+        reply_markup = InlineKeyboardMarkup(keyboard)
+
+        try:
+            await send_message(context, user_id, message, reply_markup=reply_markup)
+            return {
+                "statusCode": 200,
+                "body": json.dumps({"message": "Vote command processed"}),
+            }
+        except Exception as e:
+            return await handle_command_error(update, context, e, "simple_vote")
+
+    except Exception as e:
+        return await handle_command_error(update, context, e, "simple_vote")
+
+
+async def leaderboard_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    logger.info(f"leaderboard_command called with update: {update}, context: {context}")
+    try:
+        leaderboard_data = get_leaderboard_data()
+
+        if leaderboard_data:
+            message = "Top 10 Contributors:\n\n"
+            for i, item in enumerate(leaderboard_data, start=1):
+                try:
+                    user_details = get_user_details(item["user_id"])
+                    username = user_details["username"] if user_details else "Unknown"
+                except Exception as e:
+                    logger.error(f"Error in get_user_details: {e}")
+                    username = "Unknown"
+                message += f"{i}. {username} - {item['score']} points\n"
+        else:
+            message = "No leaderboard data available at the moment."
+
+        try:
+            await send_message(context, update.effective_user.id, message)
+            return {
+                "statusCode": 200,
+                "body": json.dumps({"message": "Leaderboard command processed"}),
+            }
+        except Exception as e:
+            return await handle_command_error(update, context, e, "leaderboard")
+
+    except Exception as e:
+        return await handle_command_error(update, context, e, "leaderboard")
+
+
+async def stop_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    logger.info(f"stop_command called with update: {update}, context: {context}")
+    user_id = update.effective_user.id
+
+    set_user_data(user_id, "auto_contribute", "False")
+    set_user_data(user_id, "auto_vote", "False")
+    set_user_data(user_id, "paused", "True")
+
+    try:
+        message = "Please use /contribute or /vote to start again."
+        await send_message(context, user_id, message)
         return {
             "statusCode": 200,
             "body": json.dumps({"message": "Stop command processed"}),
         }
     except Exception as e:
-        logger.error(f"Error in stop_command: {e}")
-        error_message = "An error occurred while processing the stop command. Please try again later."
-        await send_message(user_id, error_message)
-        return {
-            "statusCode": 500,
-            "body": json.dumps({"message": "Error processing stop command"}),
-        }
+        return await handle_command_error(update, context, e, "stop")

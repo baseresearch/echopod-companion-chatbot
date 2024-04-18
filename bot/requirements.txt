@@ -1,4 +1,4 @@
-python-telegram-bot==13.7
+python-telegram-bot==21.1.1
 python-dotenv==0.21.0
 boto3==1.26.0
 botocore==1.29.0
