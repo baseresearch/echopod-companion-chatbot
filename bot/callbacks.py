@@ -7,6 +7,7 @@ from db import (
     set_user_data,
     save_contribution,
     save_vote,
+    get_original_text,
 )
 from utils import (
     send_message,
@@ -27,7 +28,7 @@ async def handle_text(update: Update, context: ContextTypes.DEFAULT_TYPE):
     set_user_data(user_id, "last_interaction_time", datetime.now().isoformat())
 
     contribute_mode = get_user_data(user_id, "contribute_mode")
-    if contribute_mode:
+    if contribute_mode == "True":
         await handle_contribution(update, context)
     else:
         message = "Please use the provided commands to interact with the bot."
@@ -55,7 +56,8 @@ async def handle_contribution(update: Update, context: ContextTypes.DEFAULT_TYPE
         }
 
     try:
-        save_contribution(text_id, user_id, "my", update.message.text)
+        original_text = get_original_text(text_id)
+        save_contribution(text_id, user_id, "mya", update.message.text, original_text)
         message = "Thank you for your contribution!"
     except Exception as e:
         logger.exception("Failed to save contribution")
@@ -63,11 +65,11 @@ async def handle_contribution(update: Update, context: ContextTypes.DEFAULT_TYPE
             "Failed to save your contribution due to an error. Please try again later."
         )
 
-    set_user_data(user_id, "contribute_mode", False)
+    set_user_data(user_id, "contribute_mode", "False")
     await send_message(context, user_id, message)
 
     auto_contribute = get_user_data(user_id, "auto_contribute")
-    if auto_contribute:
+    if auto_contribute == "True":
         await contribute_command(update, context)
 
     return {"statusCode": 200, "body": json.dumps({"message": "Contribution handled"})}
@@ -98,6 +100,7 @@ async def handle_start_voting(update: Update, context: ContextTypes.DEFAULT_TYPE
 
         if query.data == "start_voting":
             await edit_message_reply_markup(
+                context,
                 update.effective_chat.id,
                 query.message.message_id,
                 None,
@@ -125,19 +128,20 @@ async def handle_vote(update: Update, context: ContextTypes.DEFAULT_TYPE):
         set_user_data(user_id, "last_interaction_time", datetime.now().isoformat())
 
         query = update.callback_query
-        query.answer()
+        await query.answer()
 
         translation_id, score = query.data.split("_")[1:]
-        save_vote(translation_id, user_id, int(score))
+        save_vote(translation_id, user_id, score)
 
         await edit_message_reply_markup(
+            context,
             update.effective_chat.id,
             query.message.message_id,
             None,
         )
 
         auto_vote = get_user_data(user_id, "auto_vote")
-        if auto_vote:
+        if auto_vote == "True":
             await send_text2vote(update, context)
 
         return {"statusCode": 200, "body": json.dumps({"message": "Vote handled"})}

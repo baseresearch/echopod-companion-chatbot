@@ -26,21 +26,19 @@ async def send_message(context, user_id, message, reply_markup=None):
 async def edit_message_reply_markup(context, chat_id, message_id, reply_markup):
     try:
         await context.bot.edit_message_reply_markup(
-            chat_id=chat_id,
-            message_id=message_id,
-            reply_markup=reply_markup
+            chat_id=chat_id, message_id=message_id, reply_markup=reply_markup
         )
     except Exception as e:
         logger.error(f"Error editing message reply markup: {e}")
 
 
 async def handle_command_error(context, error, command_name, user_id):
-    logger.error(f"Failed to process {command_name} command: {error}")
+    logger.error(f"Error in {command_name} command: {error}")
     error_message = f"An error occurred while processing the {command_name} command. Please try again later."
     await send_message(context, user_id, error_message)
     return {
         "statusCode": 500,
-        "body": json.dumps({"message": f"Error processing {command_name} command"}),
+        "body": json.dumps({"message": f"Error in {command_name} command"}),
     }
 
 
@@ -53,21 +51,25 @@ def calculate_interaction_interval(user_id):
 
     if last_interaction_time:
         last_interaction_time = datetime.fromisoformat(last_interaction_time)
-        if (
-            current_time - last_interaction_time
-        ).total_seconds() <= VOTING_SESSION_THRESHOLD:
+        interaction_interval = (current_time - last_interaction_time).total_seconds()
+    else:
+        interaction_interval = None
+
+    if last_interaction_session_time:
+        last_interaction_session_time = datetime.fromisoformat(
+            last_interaction_session_time
+        )
+        session_interval = (
+            current_time - last_interaction_session_time
+        ).total_seconds()
+
+        if session_interval > VOTING_SESSION_THRESHOLD:
             set_user_data(
                 user_id, "last_interaction_session_time", current_time.isoformat()
             )
-            return None
+            return interaction_interval
         else:
-            voting_interval = (
-                current_time - datetime.fromisoformat(last_interaction_session_time)
-            ).total_seconds()
-            set_user_data(
-                user_id, "last_interaction_session_time", current_time.isoformat()
-            )
-            return voting_interval
+            return None
     else:
         set_user_data(
             user_id, "last_interaction_session_time", current_time.isoformat()

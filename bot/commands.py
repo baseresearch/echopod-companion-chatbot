@@ -4,11 +4,8 @@ from db import (
     get_user_data,
     set_user_data,
     is_user_exists,
-    get_user_details,
     get_untranslated_text,
     get_unvoted_translation,
-    get_translation_by_id,
-    get_original_text,
     get_leaderboard_data,
 )
 from utils import send_message, handle_command_error
@@ -69,29 +66,31 @@ async def vote_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
     logger.info(f"vote_command called with update: {update}, context: {context}")
     user_id = update.effective_user.id
     try:
-        set_user_data(user_id, "auto_vote", "False")
+        set_user_data(user_id, "auto_vote", "True")
         set_user_data(user_id, "paused", "False")
 
         # Check if this is the first time the user is using the /vote command
         saw_best_practices = get_user_data(user_id, "saw_best_practices")
         logger.info(f"saw_best_practices: {saw_best_practices}")
 
-        if not saw_best_practices:
+        if saw_best_practices != "True":
             logger.info(
                 f"saw_best_practices called with update: {update}, context: {context}"
             )
             set_user_data(user_id, "saw_best_practices", "True")
 
             voting_rules = (
-                "ဘာသာပြန်ဆိုမှုတစ်ခုကို အမှတ်ပေးရန်၊ နံပါတ်တစ်ခုကို ရွေးချယ်ပါ။\n\n"
-                "1 - အလွန်ညံ့သော/မှားသော\n"
-                "2 - ညံ့သော\n"
-                "3 - သာမန်\n"
-                "4 - ကောင်းမွန်သော\n"
-                "5 - အထူးကောင်းမွန်သော\n\n"
-                "မဲစပေးရန် 'OK' ကို နှိပ်ပါ။"
+                "Before you start voting, here are some best practices to keep in mind:\n\n"
+                "1. Evaluate the translation based on its accuracy, fluency, and clarity.\n"
+                "2. Avoid voting based on personal preferences or opinions.\n"
+                "3. If you're unsure about a translation, skip it and move on to the next one.\n"
+                "4. Take breaks between voting sessions to avoid fatigue and maintain quality.\n\n"
+                "Happy voting! 🗳️"
             )
-            keyboard = [[InlineKeyboardButton("OK", callback_data="start_voting")]]
+
+            keyboard = [
+                [InlineKeyboardButton("Start Voting", callback_data="start_voting")]
+            ]
             reply_markup = InlineKeyboardMarkup(keyboard)
 
             await send_message(
@@ -112,80 +111,87 @@ async def vote_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
 
 
 async def send_text2vote(update: Update, context: ContextTypes.DEFAULT_TYPE):
-    logger.info(f"send_text2vote called with update: {update}, context: {context}")
     user_id = update.effective_user.id
-
-    set_user_data(user_id, "auto_vote", "True")
-
-    translation_id = get_user_data(user_id, "translation_id")
-    if translation_id:
-        result = get_translation_by_id(translation_id)
-    else:
+    try:
         result = get_unvoted_translation()
+
         if result:
-            set_user_data(user_id, "translation_id", result["id"])
+            original_text = result["original_text"]
+            translation_text = result["text"]
+            translation_id = result["translation_id"]
 
-    if result:
-        original_text_id = result["original_text_id"]
-        translation_text = result["text"]
-        original_text = get_original_text(original_text_id)
+            message = (
+                f"English:\n{original_text}\n\n"
+                f"Myanmar:\n{translation_text}\n\n"
+                "How would you rate this translation?"
+            )
 
-        message = f"Please rate the following translation:\n\nEnglish: {original_text}\n\nMyanmar: {translation_text}"
-        keyboard = [
-            [
-                InlineKeyboardButton(
-                    str(score), callback_data=f"vote_{result['id']}_{score}"
-                )
-                for score in range(1, 6)
+            keyboard = [
+                [
+                    InlineKeyboardButton(
+                        str(score), callback_data=f"vote_{translation_id}_{score}"
+                    )
+                    for score in range(1, 6)
+                ]
             ]
-        ]
-        reply_markup = InlineKeyboardMarkup(keyboard)
-    else:
-        message = "No translations available for voting at the moment. Please try again later."
-        reply_markup = None
+            reply_markup = InlineKeyboardMarkup(keyboard)
+        else:
+            message = "No translations available for voting at the moment. Please try again later."
+            reply_markup = None
 
-    await send_message(context, user_id, message, reply_markup=reply_markup)
-    return {
-        "statusCode": 200,
-        "body": json.dumps({"message": "Vote command processed"}),
-    }
+        await send_message(context, user_id, message, reply_markup=reply_markup)
+        return {
+            "statusCode": 200,
+            "body": json.dumps({"message": "Vote command processed"}),
+        }
+    except Exception as e:
+        return await handle_command_error(update, context, e, "send_text2vote")
 
 
 async def simple_vote_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    logger.info(f"simple_vote_command called with update: {update}, context: {context}")
     user_id = update.effective_user.id
-    set_user_data(user_id, "vote_mode", "True")
-    set_user_data(user_id, "auto_vote", "True")
-    set_user_data(user_id, "paused", "False")
 
     try:
+        set_user_data(user_id, "auto_vote", "True")
+        set_user_data(user_id, "paused", "False")
+
         result = get_unvoted_translation()
+
         if result:
-            original_text_id = result["original_text_id"]
-            original_text = get_original_text(original_text_id)
-            translation = result["text"]
-            message = f"Please vote on the following translation:\n\nEnglish: {original_text}\nBurmese: {translation}"
-            set_user_data(user_id, "vote_translation_id", result["id"])
+            original_text = result["original_text"]
+            translation_text = result["text"]
+            translation_id = result["translation_id"]
+
+            message = (
+                f"Original Text:\n{original_text}\n\n"
+                f"Translated Text:\n{translation_text}\n\n"
+                "How would you rate this translation?"
+            )
+
+            keyboard = [
+                [
+                    InlineKeyboardButton(
+                        "👎", callback_data=f"vote_{translation_id}_-1"
+                    ),
+                    InlineKeyboardButton(
+                        "👌", callback_data=f"vote_{translation_id}_0"
+                    ),
+                    InlineKeyboardButton(
+                        "👍", callback_data=f"vote_{translation_id}_1"
+                    ),
+                ]
+            ]
+            reply_markup = InlineKeyboardMarkup(keyboard)
         else:
             message = "No translations available for voting at the moment. Please try again later."
+            reply_markup = None
 
-        keyboard = [
-            [
-                InlineKeyboardButton("👍", callback_data="upvote"),
-                InlineKeyboardButton("👎", callback_data="downvote"),
-            ],
-            [InlineKeyboardButton("Skip", callback_data="skip_vote")],
-        ]
-        reply_markup = InlineKeyboardMarkup(keyboard)
-
-        try:
-            await send_message(context, user_id, message, reply_markup=reply_markup)
-            return {
-                "statusCode": 200,
-                "body": json.dumps({"message": "Vote command processed"}),
-            }
-        except Exception as e:
-            return await handle_command_error(update, context, e, "simple_vote")
-
+        await send_message(context, user_id, message, reply_markup=reply_markup)
+        return {
+            "statusCode": 200,
+            "body": json.dumps({"message": "Vote command processed"}),
+        }
     except Exception as e:
         return await handle_command_error(update, context, e, "simple_vote")
 
@@ -196,15 +202,11 @@ async def leaderboard_command(update: Update, context: ContextTypes.DEFAULT_TYPE
         leaderboard_data = get_leaderboard_data()
 
         if leaderboard_data:
-            message = "Top 10 Contributors:\n\n"
+            message = "🐬 Top 10 Users:\n\n"
             for i, item in enumerate(leaderboard_data, start=1):
-                try:
-                    user_details = get_user_details(item["user_id"])
-                    username = user_details["username"] if user_details else "Unknown"
-                except Exception as e:
-                    logger.error(f"Error in get_user_details: {e}")
-                    username = "Unknown"
-                message += f"{i}. {username} - {item['score']} points\n"
+                username = item["username"]
+                score = item["score"]
+                message += f"{i}. {username} - {score} points\n"
         else:
             message = "No leaderboard data available at the moment."
 
