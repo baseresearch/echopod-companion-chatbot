@@ -24,7 +24,7 @@ async def start_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
 
     try:
         is_user_exists(user_id, username)
-        message = "Welcome to the Echopod Builder!\n\nTo get started, please send:\n\n1. /contribute\n2. /vote"
+        message = "🐬\nWelcome to the Echopod Companion!\n\nTo get started, please send:\n\n1. /contribute\n2. /vote"
         await send_message(context, user_id, message)
         return {
             "statusCode": 200,
@@ -45,7 +45,7 @@ async def contribute_command(update: Update, context: ContextTypes.DEFAULT_TYPE)
         result = get_untranslated_text()
 
         if result:
-            message = f"Please translate the following English sentence to Burmese:\n\n{result['text']}"
+            message = f"🐬\nဒီစာကို အဆင်ပြေသလို ဘာသာပြန်ပေးပါ\n\n-⚠️မြန်မာစကားပြောအရေးအသားနဲ့ပဲ ရေးပေးပါနော်⚠️-\n\n{result['text']}"
             set_user_data(user_id, "contribute_text_id", result["text_id"])
         else:
             message = "No untranslated sentences available at the moment. Please try again later."
@@ -80,12 +80,14 @@ async def vote_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
             set_user_data(user_id, "saw_best_practices", "True")
 
             voting_rules = (
-                "Before you start voting, here are some best practices to keep in mind:\n\n"
-                "1. Evaluate the translation based on its accuracy, fluency, and clarity.\n"
-                "2. Avoid voting based on personal preferences or opinions.\n"
-                "3. If you're unsure about a translation, skip it and move on to the next one.\n"
-                "4. Take breaks between voting sessions to avoid fatigue and maintain quality.\n\n"
-                "Happy voting! 🗳️"
+                "🐬\nအမှတ်ပေးတဲ့အခါမှာ ဒီအချက်တွေကို သတိပြုပေးပါခင်ဗျာ-\n\n"
+                "အခုဒေတာစုက အင်္ဂလိပ်<->မြန်မာ 'စကားပြော'အရေးအသားကို အဓိကထားပါတယ်\n\n"
+                "တစ်ချို့စကားလုံးတွေကို ဆီလျော်အောင် ဘာသာပြန်ထားတာဖြစ်လို့၊​ အဓိပ္ပါယ်တူသရွေ့ အဆင်ပြေပါတယ်\n\n"
+                "ဘန်းစကားသုံးထားတာတွေ တစ်ခါတစ်လေ ပါလာနိုင်ပါတယ်\n\n"
+                "ကိုယ့်အကြိုက် ဒါမှမဟုတ် ထင်မြင်ယူဆချက်ပေါ်မှာ အခြေခံပြီး အမှတ်မပေးပါနဲ့ခင်ဗျာ\n\n"
+                "လုံးဝမှားနေမှ ၁ ကို ပေးပါ\n\n"
+                "စာလုံးပေါင်း အနည်းငယ်မှားရုံပဲဆိုရင် ၂ က စပြီးပေးပေးပါ\n\n"
+                "အရေးအကြီးဆုံးကတော့... လူမပင်ပန်းအောင် နားနားပြီး vote ပါနော် 🗳️"
             )
 
             keyboard = [
@@ -121,9 +123,12 @@ async def send_text2vote(update: Update, context: ContextTypes.DEFAULT_TYPE):
             translation_id = result["translation_id"]
 
             message = (
-                f"English:\n{original_text}\n\n"
-                f"Myanmar:\n{translation_text}\n\n"
-                "How would you rate this translation?"
+                f"🐬\n"
+                + "အောက်ပါဘာသာပြန်ဆိုမှုအား 1 မှ 5 အတွင်း အဆင့်သတ်မှတ်ပေးပါ:\n\n"
+                + "English:\n----------| "
+                + f"{original_text}\n\n"
+                + "Burmese:\n----------| "
+                + f"{translation_text}\n\n"
             )
 
             keyboard = [
