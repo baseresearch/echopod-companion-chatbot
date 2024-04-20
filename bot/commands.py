@@ -18,7 +18,7 @@ from telegram.ext import ContextTypes
 
 async def start_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
     user_id = update.effective_user.id
-    username = update.effective_user.full_name
+    username = update.effective_user.name
 
     try:
         is_user_exists(user_id, username)
