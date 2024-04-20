@@ -21,6 +21,7 @@ from commands import (
     vote_command,
     leaderboard_command,
     stop_command,
+    project_stats_command,
 )
 from config import TELEGRAM_BOT_TOKEN
 
@@ -37,6 +38,7 @@ async def main(event, context):
     application.add_handler(CommandHandler("vote", vote_command))
     application.add_handler(CommandHandler("stop", stop_command))
     application.add_handler(CommandHandler("leaderboard", leaderboard_command))
+    application.add_handler(CommandHandler("stats", project_stats_command))
     application.add_handler(
         CallbackQueryHandler(handle_start_voting, pattern="^start_voting$")
     )

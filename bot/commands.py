@@ -7,10 +7,14 @@ from db import (
     get_untranslated_text,
     get_unvoted_translation,
     get_leaderboard_data,
+    get_total_users,
+    get_total_contributions,
+    get_total_votings,
 )
 from utils import send_message, handle_command_error
 from telegram import Update, InlineKeyboardButton, InlineKeyboardMarkup
 from telegram.ext import ContextTypes
+
 
 async def start_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
     user_id = update.effective_user.id
@@ -230,3 +234,23 @@ async def stop_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
         }
     except Exception as e:
         return await handle_command_error(update, context, e, "stop")
+
+
+async def project_stats_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    try:
+        total_users = get_total_users()
+        total_votes = get_total_votings()
+        total_contributions = get_total_contributions()
+
+        message = (
+            f"Total number of users: {total_users}\n"
+            f"Total number of votes: {total_votes}\n"
+            f"Total number of contributions: {total_contributions}\n"
+        )
+        await send_message(context, update.effective_user.id, message)
+        return {
+            "statusCode": 200,
+            "body": json.dumps({"message": "Total users command processed"}),
+        }
+    except Exception as e:
+        return await handle_command_error(update, context, e, "total_users")

@@ -2,7 +2,7 @@ import boto3
 import logging
 import random
 from botocore.exceptions import ClientError
-from boto3.dynamodb.conditions import Key
+from boto3.dynamodb.conditions import Key, Attr
 from config import DYNAMODB_TABLE_PREFIX
 
 logging.basicConfig(level=logging.INFO)
@@ -286,7 +286,9 @@ def get_leaderboard_data():
             user_id = item["user_id"]
             if user_id == "1":  # Skip the bot's user ID
                 continue
-            username = item.get("username", "Unknown")  # for some reasons username could be empty
+            username = item.get(
+                "username", "Unknown"
+            )  # for some reasons username could be empty
             contributions = float(item.get("contributions", 0))
             votings = float(item.get("votings", 0))
             score = round(contributions + (votings / 10))
@@ -301,4 +303,47 @@ def get_leaderboard_data():
         return sorted(leaderboard_data, key=lambda x: x["score"], reverse=True)[:10]
     except ClientError as e:
         logger.exception("Failed to get leaderboard data")
+        raise e
+
+
+def get_total_users():
+    try:
+        response = execute_db_query(
+            operation="scan",
+            table=user_table,
+            Select="COUNT",
+        )
+        return response["Count"]
+    except ClientError as e:
+        logger.exception("Failed to get total users")
+        raise e
+
+
+def get_total_contributions():
+    try:
+        response = execute_db_query(
+            operation="scan",
+            table=user_table,
+            FilterExpression=Attr("user_id").ne("1"),  # Exclude the bot's user ID
+            ProjectionExpression="contributions",
+        )
+        total_contributions = sum(
+            int(item.get("contributions", 0)) for item in response.get("Items", [])
+        )
+        return total_contributions
+    except ClientError as e:
+        logger.exception("Failed to get total contributions")
+        raise e
+
+
+def get_total_votings():
+    try:
+        response = execute_db_query(
+            operation="scan",
+            table=score_table,
+            Select="COUNT",
+        )
+        return response["Count"]
+    except ClientError as e:
+        logger.exception("Failed to get total votings")
         raise e
