@@ -237,20 +237,28 @@ async def stop_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
 
 
 async def project_stats_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
-    try:
-        total_users = get_total_users()
-        total_votes = get_total_votings()
-        total_contributions = get_total_contributions()
+    total_users = get_total_users()
+    total_contributions = 0
+    last_evaluated_key = None
 
-        message = (
-            f"Total number of users: {total_users}\n"
-            f"Total number of votes: {total_votes}\n"
-            f"Total number of contributions: {total_contributions}\n"
+    while True:
+        contributions, last_evaluated_key = get_total_contributions(
+            limit=100, last_evaluated_key=last_evaluated_key
         )
-        await send_message(context, update.effective_user.id, message)
-        return {
-            "statusCode": 200,
-            "body": json.dumps({"message": "Total users command processed"}),
-        }
-    except Exception as e:
-        return await handle_command_error(update, context, e, "total_users")
+        total_contributions += sum(contributions)
+
+        if not last_evaluated_key:
+            break
+
+    total_votes = get_total_votings()
+
+    message = (
+        f"Total number of users: {total_users}\n"
+        f"Total number of votes: {total_votes}\n"
+        f"Total number of contributions: {total_contributions}\n"
+    )
+    await send_message(context, update.effective_user.id, message)
+    return {
+        "statusCode": 200,
+        "body": json.dumps({"message": "Total users command processed"}),
+    }

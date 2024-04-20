@@ -96,6 +96,7 @@ def get_user_details(user_id):
         response = execute_db_query(
             operation="get_item",
             Key={"user_id": str(user_id)},
+            ProjectionExpression="user_id, username, contributions, votings",
             table=user_table,
         )
         return response.get("Item")
@@ -319,18 +320,25 @@ def get_total_users():
         raise e
 
 
-def get_total_contributions():
+def get_total_contributions(limit=100, last_evaluated_key=None):
     try:
-        response = execute_db_query(
-            operation="scan",
-            table=user_table,
-            FilterExpression=Attr("user_id").ne("1"),  # Exclude the bot's user ID
-            ProjectionExpression="contributions",
-        )
-        total_contributions = sum(
+        kwargs = {
+            "operation": "scan",
+            "table": user_table,
+            "FilterExpression": Attr("user_id").ne("1"),
+            "ProjectionExpression": "contributions",
+            "Limit": limit,
+        }
+        if last_evaluated_key:
+            kwargs["ExclusiveStartKey"] = last_evaluated_key
+
+        response = execute_db_query(**kwargs)
+        contributions = [
             int(item.get("contributions", 0)) for item in response.get("Items", [])
-        )
-        return total_contributions
+        ]
+        last_evaluated_key = response.get("LastEvaluatedKey")
+
+        return contributions, last_evaluated_key
     except ClientError as e:
         logger.exception("Failed to get total contributions")
         raise e
