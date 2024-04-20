@@ -12,13 +12,7 @@ from utils import send_message, handle_command_error
 from telegram import Update, InlineKeyboardButton, InlineKeyboardMarkup
 from telegram.ext import ContextTypes
 
-# Configure logging
-logger = logging.getLogger()
-logger.setLevel(logging.INFO)
-
-
 async def start_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
-    logger.info(f"start_command called with update: {update}, context: {context}")
     user_id = update.effective_user.id
     username = update.effective_user.full_name
 
@@ -35,7 +29,6 @@ async def start_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
 
 
 async def contribute_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
-    logger.info(f"contribute_command called with update: {update}, context: {context}")
     user_id = update.effective_user.id
     set_user_data(user_id, "contribute_mode", "True")
     set_user_data(user_id, "auto_contribute", "True")
@@ -63,7 +56,6 @@ async def contribute_command(update: Update, context: ContextTypes.DEFAULT_TYPE)
 
 
 async def vote_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
-    logger.info(f"vote_command called with update: {update}, context: {context}")
     user_id = update.effective_user.id
     try:
         set_user_data(user_id, "auto_vote", "True")
@@ -71,12 +63,8 @@ async def vote_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
 
         # Check if this is the first time the user is using the /vote command
         saw_best_practices = get_user_data(user_id, "saw_best_practices")
-        logger.info(f"saw_best_practices: {saw_best_practices}")
 
         if saw_best_practices != "True":
-            logger.info(
-                f"saw_best_practices called with update: {update}, context: {context}"
-            )
             set_user_data(user_id, "saw_best_practices", "True")
 
             voting_rules = (
@@ -154,7 +142,6 @@ async def send_text2vote(update: Update, context: ContextTypes.DEFAULT_TYPE):
 
 
 async def simple_vote_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
-    logger.info(f"simple_vote_command called with update: {update}, context: {context}")
     user_id = update.effective_user.id
 
     try:
@@ -202,7 +189,6 @@ async def simple_vote_command(update: Update, context: ContextTypes.DEFAULT_TYPE
 
 
 async def leaderboard_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
-    logger.info(f"leaderboard_command called with update: {update}, context: {context}")
     try:
         leaderboard_data = get_leaderboard_data()
 
@@ -229,7 +215,6 @@ async def leaderboard_command(update: Update, context: ContextTypes.DEFAULT_TYPE
 
 
 async def stop_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
-    logger.info(f"stop_command called with update: {update}, context: {context}")
     user_id = update.effective_user.id
 
     set_user_data(user_id, "auto_contribute", "False")

@@ -6,7 +6,7 @@ from config import VOTING_SESSION_THRESHOLD
 
 # Configure logging
 logger = logging.getLogger()
-logger.setLevel(logging.INFO)
+logger.setLevel(logging.ERROR)
 
 
 async def send_reminder_message(context, user_id):
