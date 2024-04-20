@@ -286,9 +286,9 @@ def get_leaderboard_data():
             user_id = item["user_id"]
             if user_id == "1":  # Skip the bot's user ID
                 continue
-            username = item["username"]
-            contributions = item.get("contributions", 0)
-            votings = item.get("votings", 0)
+            username = item.get("username", "Unknown")  # for some reasons username could be empty
+            contributions = float(item.get("contributions", 0))
+            votings = float(item.get("votings", 0))
             score = round(contributions + (votings / 10))
             leaderboard_data.append(
                 {
