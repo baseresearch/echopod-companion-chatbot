@@ -200,8 +200,9 @@ async def leaderboard_command(update: Update, context: ContextTypes.DEFAULT_TYPE
             message = "🐬 Top 10 Users:\n\n"
             for i, item in enumerate(leaderboard_data, start=1):
                 username = item["username"]
+                masked_username = username[:4] + "*" * (len(username) - 4)
                 score = item["score"]
-                message += f"{i}. {username} - {score} points\n"
+                message += f"{i}. {masked_username} - {score} points\n"
         else:
             message = "No leaderboard data available at the moment."
 
