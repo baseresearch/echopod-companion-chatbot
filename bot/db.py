@@ -71,6 +71,17 @@ def is_user_exists(user_id, username):
         )
         if "Item" not in response:
             add_new_user(user_id, username)
+        else:
+            # Check if the username has changed and update it if necessary
+            current_username = response["Item"].get("username", "").lstrip("@")
+            if current_username != username.lstrip("@"):
+                execute_db_query(
+                    operation="update_item",
+                    Key={"user_id": str(user_id)},
+                    UpdateExpression="SET username = :username",
+                    ExpressionAttributeValues={":username": username},
+                    table=user_table,
+                )
     except ClientError as e:
         logger.exception("Failed to check user existence")
         raise e
