@@ -347,7 +347,7 @@ def update_daily_stats(user_id, activity_type):
 def get_aggregated_counts(date, user_id=None):
     try:
         if user_id:
-            key_condition_expression = Key('date').eq(date) & Key('user_id').eq(user_id)
+            key_condition_expression = Key('date').eq(date) & Key('user_id').eq(str(user_id))
         else:
             key_condition_expression = Key('date').eq(date)
 

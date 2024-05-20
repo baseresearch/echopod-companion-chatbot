@@ -14,8 +14,9 @@ from utils import (
     edit_message_reply_markup,
     calculate_interaction_interval,
     update_avg_interaction_interval,
+    check_threshold,
 )
-from telegram import Update
+from telegram import Update, InlineKeyboardButton, InlineKeyboardMarkup
 from telegram.ext import ContextTypes
 
 logger = logging.getLogger(__name__)
@@ -59,18 +60,31 @@ async def handle_contribution(update: Update, context: ContextTypes.DEFAULT_TYPE
         original_text = get_original_text(text_id)
         save_contribution(text_id, user_id, "mya", update.message.text, original_text)
         message = "Thank you for your contribution!"
-    except Exception as e:
+    except Exception:
         logger.exception("Failed to save contribution")
         message = (
             "Failed to save your contribution due to an error. Please try again later."
         )
 
     set_user_data(user_id, "contribute_mode", "False")
-    await send_message(context, user_id, message)
+    threshold, threshold_message = check_threshold(user_id, type="contribution")
 
-    auto_contribute = get_user_data(user_id, "auto_contribute")
-    if auto_contribute == "True":
-        await contribute_command(update, context)
+    if threshold:
+        keyboard = [
+            [
+                InlineKeyboardButton("Continue", callback_data="skip_contribute")
+            ]  # We reuse skip
+        ]
+        reply_markup = InlineKeyboardMarkup(keyboard)
+
+        await send_message(
+            context, user_id, threshold_message, reply_markup=reply_markup
+        )
+    else:
+        await send_message(context, user_id, message)
+
+        if get_user_data(user_id, "auto_contribute") == "True":
+            await contribute_command(update, context)
 
     return {"statusCode": 200, "body": json.dumps({"message": "Contribution handled"})}
 
@@ -133,16 +147,29 @@ async def handle_vote(update: Update, context: ContextTypes.DEFAULT_TYPE):
         translation_id, score = query.data.split("_")[1:]
         save_vote(translation_id, user_id, score)
 
-        await edit_message_reply_markup(
-            context,
-            update.effective_chat.id,
-            query.message.message_id,
-            None,
-        )
-
-        auto_vote = get_user_data(user_id, "auto_vote")
-        if auto_vote == "True":
-            await send_text2vote(update, context)
+        threshold, threshold_message = check_threshold(user_id, type="vote")
+        if threshold:
+            keyboard = [
+                [
+                    InlineKeyboardButton(
+                        "Continue Voting", callback_data="continue_voting"
+                    )
+                ]
+            ]
+            reply_markup = InlineKeyboardMarkup(keyboard)
+            await send_message(
+                context, user_id, threshold_message, reply_markup=reply_markup
+            )
+        else:
+            await edit_message_reply_markup(
+                context,
+                update.effective_chat.id,
+                query.message.message_id,
+                None,
+            )
+            auto_vote = get_user_data(user_id, "auto_vote")
+            if auto_vote == "True":
+                await send_text2vote(update, context)
 
         return {"statusCode": 200, "body": json.dumps({"message": "Vote handled"})}
     except Exception as e:

@@ -1,7 +1,7 @@
 import logging
 import json
 from datetime import datetime
-from db import get_user_data, set_user_data
+from db import get_user_data, set_user_data, get_aggregated_counts
 from config import VOTING_SESSION_THRESHOLD
 
 # Configure logging
@@ -40,6 +40,34 @@ async def handle_command_error(context, error, command_name, user_id):
         "statusCode": 500,
         "body": json.dumps({"message": f"Error in {command_name} command"}),
     }
+
+
+def check_threshold(user_id, type="contribution"):
+    today = datetime.now().strftime("%Y-%m-%d")
+    total_translations, total_votes = get_aggregated_counts(today, user_id)
+
+    milestones = {
+        "contribution": {
+            10: "🐬\nကျေးဇူးတင်ပါတယ်!\n\nခဏလောက် မျက်စိအနားပေးလိုက်ပါဦးနော်...😌",
+            25: "🐬\n၁၀ မိနစ်လောက် နားဦးလေ\n\nတစ်ထိုင်ထဲ အများကြီးလုပ်ရင် ပင်ပန်းနေမှာစိုးလို့ပါ ❤️",
+            35: "🐬\nကျေးဇူးအများကြီးတင်ပါတယ်!\n\nဒီနေ့အတွက် နားမယ်ဆိုရင်၊ နားလိုက်တော့နော်...\nတစ်ထိုင်ထဲ အများကြီးလုပ်ရင် ပင်ပန်းမှာစိုးလို့ပါ ❤️",
+            50: "🐬\nကဲ.. မနားသေးဘူးကိုး\n\nဒီနေ့အတွက် {count}ခုတောင် ဘာသာပြန်ပေးထားတာ...\n\nနားလိုက်ပါတော့နော်...❤️\n\nတစ်နေ့ကိုနည်းနည်းစီ ပုံမှန်လုပ်ဖို့က ပိုအရေးကြီးတာမလို့၊ မနက်ဖြန်ကြရင်ထပ်တွေ့မယ်လေ... ❤️",
+        },
+        "vote": {
+            10: "🐬\nကျေးဇူးတင်ပါတယ်!\n\nခဏလောက် မျက်စိအနားပေးလိုက်ပါဦးနော်...😌",
+            30: "🐬\n၅ မိနစ်လောက် နားဦးလေ\n\nတစ်ထိုင်ထဲ အများကြီးလုပ်ရင် ပင်ပန်းနေမှာစိုးလို့ပါ ❤️",
+            50: "🐬\nကျေးဇူးအများကြီးတင်ပါတယ်!\n\nဒီနေ့အတွက် {count}တောင်အမှတ်ပေးလိုက်တာ...\n\nနားမယ်ဆိုရင်၊ နားလိုက်တော့နော်...❤️\n\nတစ်နေ့ကိုနည်းနည်းစီ ပုံမှန်လုပ်ဖို့က ပိုအရေးကြီးတာမလို့၊ မနက်ဖြန်ကြရင်ထပ်တွေ့မယ်လေ...",
+            100: "🐬\nကဲ.. မနားသေးဘူးကို\nကျေးဇူးအများကြီးတင်ပါတယ်ဗျာ!\n\nဒါပေမယ့် ဒီတစ်ခါတော့ တကယ်နားလိုက်ပါတော့\n\nဒီနေ့အတွက် {count}ခုတောင် အမှတ်ပေးပြီးသွားပြီလေ...\n\nနားလိုက်ပါတော့.. လိမ္မာပါတယ်..\n\nမနက်ဖြန်ကြရင်တော့ ထပ်ပြီးကူပေးဖို့ မမေ့ရဘူးနော်...",
+        },
+    }
+
+    count = int(total_translations) if type == "contribution" else int(total_votes)
+
+    if count in milestones[type]:
+        milestone_message = milestones[type][count].format(count=count)
+        return True, milestone_message
+
+    return False, None
 
 
 def calculate_interaction_interval(user_id):
