@@ -1,5 +1,5 @@
 import json
-import logging
+from datetime import datetime, timedelta
 from db import (
     get_user_data,
     set_user_data,
@@ -8,8 +8,7 @@ from db import (
     get_unvoted_translation,
     get_leaderboard_data,
     get_total_users,
-    get_total_contributions,
-    get_total_votings,
+    get_aggregated_counts_for_all_users,
 )
 from utils import send_message, handle_command_error
 from telegram import Update, InlineKeyboardButton, InlineKeyboardMarkup
@@ -239,27 +238,20 @@ async def stop_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
 
 async def project_stats_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
     total_users = get_total_users()
-    total_contributions = 0
-    last_evaluated_key = None
+    start_date = "2024-04-19"
+    end_date = datetime.now().strftime("%Y-%m-%d")
 
-    while True:
-        contributions, last_evaluated_key = get_total_contributions(
-            limit=100, last_evaluated_key=last_evaluated_key
-        )
-        total_contributions += sum(contributions)
-
-        if not last_evaluated_key:
-            break
-
-    total_votes = get_total_votings()
+    translation_count, vote_count = get_aggregated_counts_for_all_users(
+        start_date, end_date
+    )
 
     message = (
         f"Total number of users: {total_users}\n"
-        f"Total number of votes: {total_votes}\n"
-        f"Total number of contributions: {total_contributions}\n"
+        f"Total number of votes: {vote_count}\n"
+        f"Total number of translations: {translation_count}\n"
     )
     await send_message(context, update.effective_user.id, message)
     return {
         "statusCode": 200,
-        "body": json.dumps({"message": "Total users command processed"}),
+        "body": json.dumps({"message": "Project stats command processed"}),
     }
