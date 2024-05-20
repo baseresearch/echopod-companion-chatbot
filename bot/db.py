@@ -318,43 +318,6 @@ def get_total_users():
         raise e
 
 
-def get_total_contributions(limit=100, last_evaluated_key=None):
-    try:
-        kwargs = {
-            "operation": "scan",
-            "table": user_table,
-            "FilterExpression": Attr("user_id").ne("1"),
-            "ProjectionExpression": "contributions",
-            "Limit": limit,
-        }
-        if last_evaluated_key:
-            kwargs["ExclusiveStartKey"] = last_evaluated_key
-
-        response = execute_db_query(**kwargs)
-        contributions = [
-            int(item.get("contributions", 0)) for item in response.get("Items", [])
-        ]
-        last_evaluated_key = response.get("LastEvaluatedKey")
-
-        return contributions, last_evaluated_key
-    except ClientError as e:
-        logger.exception("Failed to get total contributions")
-        raise e
-
-
-def get_total_votings():
-    try:
-        response = execute_db_query(
-            operation="scan",
-            table=score_table,
-            Select="COUNT",
-        )
-        return response["Count"]
-    except ClientError as e:
-        logger.exception("Failed to get total votings")
-        raise e
-
-
 def update_daily_stats(user_id, activity_type):
     try:
         today = datetime.now().strftime("%Y-%m-%d")
@@ -380,34 +343,24 @@ def update_daily_stats(user_id, activity_type):
         logger.exception("Failed to update daily stats")
         raise e
 
-
-def get_aggregated_counts_for_all_users(start_date, end_date):
+# TODO: aggregate counts with Efficient Range Queries for any given date ranges.
+def get_aggregated_counts(date, user_id=None):
     try:
-        total_translations = 0
-        total_votes = 0
-        last_evaluated_key = None
+        if user_id:
+            key_condition_expression = Key('date').eq(date) & Key('user_id').eq(user_id)
+        else:
+            key_condition_expression = Key('date').eq(date)
 
-        while True:
-            scan_kwargs = {
-                "FilterExpression": Attr("date").between(start_date, end_date),
-                "ProjectionExpression": "translations_count, votes_count",
-                "Select": "SPECIFIC_ATTRIBUTES",
-                "Limit": 1000,
-            }
-            if last_evaluated_key:
-                scan_kwargs["ExclusiveStartKey"] = last_evaluated_key
+        response = daily_stats_table.query(
+            KeyConditionExpression=key_condition_expression,
+            ProjectionExpression="translations_count, votes_count"
+        )
 
-            response = daily_stats_table.scan(**scan_kwargs)
-
-            for item in response.get("Items", []):
-                total_translations += item.get("translations_count", 0)
-                total_votes += item.get("votes_count", 0)
-
-            last_evaluated_key = response.get("LastEvaluatedKey", None)
-            if not last_evaluated_key:
-                break
+        items = response.get("Items", [])
+        total_translations = sum(item.get("translations_count", 0) for item in items)
+        total_votes = sum(item.get("votes_count", 0) for item in items)
 
         return total_translations, total_votes
-    except Exception as e:
-        logger.exception("Failed to get aggregated counts for all users")
+    except ClientError as e:
+        logger.exception("Failed to get aggregated counts for the given user and day")
         raise e

@@ -8,7 +8,7 @@ from db import (
     get_unvoted_translation,
     get_leaderboard_data,
     get_total_users,
-    get_aggregated_counts_for_all_users,
+    get_aggregated_counts,
 )
 from utils import send_message, handle_command_error
 from telegram import Update, InlineKeyboardButton, InlineKeyboardMarkup
@@ -238,17 +238,14 @@ async def stop_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
 
 async def project_stats_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
     total_users = get_total_users()
-    start_date = "2024-04-19"
-    end_date = datetime.now().strftime("%Y-%m-%d")
+    today = datetime.now().strftime("%Y-%m-%d")
 
-    translation_count, vote_count = get_aggregated_counts_for_all_users(
-        start_date, end_date
-    )
+    translation_count, vote_count = get_aggregated_counts(date=today, user_id=None)
 
     message = (
         f"Total number of users: {total_users}\n"
-        f"Total number of votes: {vote_count}\n"
-        f"Total number of translations: {translation_count}\n"
+        f"Total votes today: {vote_count}\n"
+        f"Total translations today: {translation_count}\n"
     )
     await send_message(context, update.effective_user.id, message)
     return {
