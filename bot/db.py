@@ -4,6 +4,7 @@ import random
 from botocore.exceptions import ClientError
 from boto3.dynamodb.conditions import Key, Attr
 from config import DYNAMODB_TABLE_PREFIX
+from datetime import datetime
 
 logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
@@ -13,6 +14,7 @@ user_table = dynamodb.Table(f"{DYNAMODB_TABLE_PREFIX}_User")
 original_text_table = dynamodb.Table(f"{DYNAMODB_TABLE_PREFIX}_OriginalText")
 translation_table = dynamodb.Table(f"{DYNAMODB_TABLE_PREFIX}_Translation")
 score_table = dynamodb.Table(f"{DYNAMODB_TABLE_PREFIX}_Score")
+daily_stats_table = dynamodb.Table(f"daily_stats")
 
 
 def execute_db_query(operation, **kwargs):
@@ -45,7 +47,7 @@ def get_user_data(user_id, key):
         return response.get("Item", {}).get(key)
     except ClientError as e:
         logger.exception("Failed to get user data")
-        raise e
+        return None
 
 
 def set_user_data(user_id, key, value):
@@ -233,13 +235,7 @@ def save_contribution(text_id, user_id, lang, text, original_text):
             ExpressionAttributeValues={":translated": "True"},
             table=original_text_table,
         )
-        execute_db_query(
-            operation="update_item",
-            Key={"user_id": str(user_id)},
-            UpdateExpression="SET contributions = if_not_exists(contributions, :zero) + :inc",
-            ExpressionAttributeValues={":zero": 0, ":inc": 1},
-            table=user_table,
-        )
+        update_daily_stats(user_id, "translation")
     except ClientError as e:
         if e.response["Error"]["Code"] == "ConditionalCheckFailedException":
             logger.warning(f"Contribution already exists for text_id: {text_id}")
@@ -269,14 +265,7 @@ def save_vote(translation_id, user_id, score):
             ExpressionAttributeValues={":voted": "True"},
             table=translation_table,
         )
-
-        execute_db_query(
-            operation="update_item",
-            table=user_table,
-            Key={"user_id": str(user_id)},
-            UpdateExpression="SET votings = if_not_exists(votings, :zero) + :inc",
-            ExpressionAttributeValues={":zero": 0, ":inc": 1},
-        )
+        update_daily_stats(user_id, "vote")
     except ClientError as e:
         if e.response["Error"]["Code"] == "ConditionalCheckFailedException":
             logger.warning(
@@ -363,4 +352,62 @@ def get_total_votings():
         return response["Count"]
     except ClientError as e:
         logger.exception("Failed to get total votings")
+        raise e
+
+
+def update_daily_stats(user_id, activity_type):
+    try:
+        today = datetime.now().strftime("%Y-%m-%d")
+        update_expression = "SET {field} = if_not_exists({field}, :zero) + :inc"
+        expression_attribute_values = {":zero": 0, ":inc": 1}
+
+        if activity_type == "translation":
+            field = "translations_count"
+        elif activity_type == "vote":
+            field = "votes_count"
+        else:
+            logger.error(f"Unsupported activity type: {activity_type}")
+            return
+
+        execute_db_query(
+            operation="update_item",
+            Key={"date": today, "user_id": str(user_id)},
+            UpdateExpression=update_expression.format(field=field),
+            ExpressionAttributeValues=expression_attribute_values,
+            table=daily_stats_table,
+        )
+    except ClientError as e:
+        logger.exception("Failed to update daily stats")
+        raise e
+
+
+def get_aggregated_counts_for_all_users(start_date, end_date):
+    try:
+        total_translations = 0
+        total_votes = 0
+        last_evaluated_key = None
+
+        while True:
+            scan_kwargs = {
+                "FilterExpression": Attr("date").between(start_date, end_date),
+                "ProjectionExpression": "translations_count, votes_count",
+                "Select": "SPECIFIC_ATTRIBUTES",
+                "Limit": 1000,
+            }
+            if last_evaluated_key:
+                scan_kwargs["ExclusiveStartKey"] = last_evaluated_key
+
+            response = daily_stats_table.scan(**scan_kwargs)
+
+            for item in response.get("Items", []):
+                total_translations += item.get("translations_count", 0)
+                total_votes += item.get("votes_count", 0)
+
+            last_evaluated_key = response.get("LastEvaluatedKey", None)
+            if not last_evaluated_key:
+                break
+
+        return total_translations, total_votes
+    except Exception as e:
+        logger.exception("Failed to get aggregated counts for all users")
         raise e
